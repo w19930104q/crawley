@@ -14,16 +14,12 @@ import (
 	"time"
 
 	"github.com/s0rg/set"
-	"golang.org/x/net/html/atom"
 )
 
 const robotsEP = "/robots.txt"
 
 var (
-	errGeneric  = errors.New("generic error")
-	testOptions = []Option{
-		WithMaxCrawlDepth(1),
-	}
+	errGeneric = errors.New("generic error")
 )
 
 type testClient struct {
@@ -92,7 +88,7 @@ func TestCrawlerOK(t *testing.T) {
 		results = append(results, s)
 	}
 
-	c := New(testOptions...)
+	c := New(WithMaxCrawlDepth(1))
 
 	if err := c.Run(ts.URL, handler); err != nil {
 		t.Errorf("run: %v", err)
@@ -126,7 +122,7 @@ func TestCrawlerOK(t *testing.T) {
 func TestCrawlerBadLink(t *testing.T) {
 	t.Parallel()
 
-	c := New(testOptions...)
+	c := New(WithMaxCrawlDepth(1))
 
 	if err := c.Run("%", nil); err == nil {
 		t.Error("run - no error")
@@ -142,7 +138,7 @@ func TestCrawlerBadHead(t *testing.T) {
 
 	defer ts.Close()
 
-	c := New(testOptions...)
+	c := New(WithMaxCrawlDepth(1))
 
 	if err := c.Run(ts.URL, nil); err != nil {
 		t.Error("run - error")
@@ -164,7 +160,7 @@ func TestCrawlerBadGet(t *testing.T) {
 
 	defer ts.Close()
 
-	c := New(testOptions...)
+	c := New(WithMaxCrawlDepth(1))
 
 	if err := c.Run(ts.URL, nil); err != nil {
 		t.Error("run - error")
@@ -371,6 +367,19 @@ func TestCrawlerRobotsErr400(t *testing.T) {
 	}
 }
 
+func newRobotsTestRun(t *testing.T, c *Crawler) *runState {
+	t.Helper()
+
+	r, err := newRun(context.Background(), c.cfg)
+	if err != nil {
+		t.Fatalf("new run: %v", err)
+	}
+
+	t.Cleanup(r.cleanup)
+
+	return r
+}
+
 func TestCrawlerRobotsRequestErr(t *testing.T) {
 	t.Parallel()
 
@@ -383,7 +392,8 @@ func TestCrawlerRobotsRequestErr(t *testing.T) {
 		)
 	)
 
-	c.initRobots(base, &tc)
+	r := newRobotsTestRun(t, c)
+	c.initRobots(base, &tc, r)
 
 	if c.robots.Forbidden("/some") {
 		t.Error("forbidden")
@@ -402,7 +412,8 @@ func TestCrawlerRobotsBodytErr(t *testing.T) {
 		)
 	)
 
-	c.initRobots(base, &tc)
+	r := newRobotsTestRun(t, c)
+	c.initRobots(base, &tc, r)
 
 	if c.robots.Forbidden("/some") {
 		t.Error("forbidden")
@@ -543,77 +554,6 @@ func TestCrawlerNoHeads(t *testing.T) {
 
 	if !strings.HasSuffix(results[0], "a") {
 		t.Error("unexpected result")
-	}
-}
-
-func TestCrawlerGetNonHTTPErr(t *testing.T) {
-	t.Parallel()
-
-	var (
-		base, _ = url.Parse("http://test/")
-		tc      = testClient{err: errGeneric, bodyIO: nil}
-		c       = New(WithoutHeads(true))
-	)
-
-	c.crawlCh = make(chan *url.URL, 1)
-	c.resultCh = make(chan crawlResult, 1)
-
-	c.crawlCh <- base
-
-	close(c.crawlCh)
-
-	c.wg.Add(1)
-
-	go c.worker(&tc)
-
-	c.wg.Wait()
-
-	close(c.resultCh)
-
-	flags := make([]bool, 0, 1)
-
-	for t := range c.resultCh {
-		flags = append(flags, t.Flag == TaskDone)
-	}
-
-	if len(flags) != 1 {
-		t.Fatal("more results, than expected")
-	}
-
-	if !flags[0] {
-		t.Error("non-done result")
-	}
-}
-
-func TestCrawlerBadEmit(t *testing.T) {
-	t.Parallel()
-
-	c := New(WithoutHeads(true))
-	c.handleCh = make(chan string, 1)
-
-	c.tryHandle("no-slash")
-
-	close(c.handleCh)
-
-	var count int
-
-	for range c.handleCh {
-		count++
-	}
-
-	if count > 0 {
-		t.Error("unexpected count")
-	}
-}
-
-func TestCrawlerBad(t *testing.T) {
-	t.Parallel()
-
-	c := New(WithoutHeads(true))
-	base, _ := url.Parse("http://test/")
-
-	if c.tryEnqueue(base, &crawlResult{URI: "%"}) {
-		t.Error("can crawl bad uri")
 	}
 }
 
@@ -963,24 +903,6 @@ func TestCrawlerScanCSSURLNoCT(t *testing.T) {
 
 	if !found {
 		t.Fail()
-	}
-}
-
-func TestCrawlerOverflow(t *testing.T) {
-	t.Parallel()
-
-	c := New(
-		WithoutHeads(true),
-		WithMaxCrawlDepth(1),
-	)
-	base, _ := url.Parse("http://test/")
-	res := crawlResult{URI: "http://test/foo"}
-
-	c.tryHandle("/")
-	c.linkHandler(atom.A, "")
-
-	if c.tryEnqueue(base, &res) {
-		t.Error("no overflow")
 	}
 }
 

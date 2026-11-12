@@ -15,6 +15,14 @@ const (
 	minDelay   = time.Duration(0)
 	minTimeout = time.Second
 	maxTimeout = time.Minute * 10
+
+	// minBufferCap is the smallest allowed in-memory capacity of the
+	// discovery, pending and output buffers.
+	minBufferCap = 16
+	// maxBufferCap bounds the per-buffer in-memory capacity.
+	maxBufferCap = 1 << 16
+	// defaultBufferCap is used when no explicit capacity is configured.
+	defaultBufferCap = 1024
 )
 
 type config struct {
@@ -30,6 +38,11 @@ type config struct {
 	ScanJS     bool
 	ScanCSS    bool
 	Subdomains bool
+	// BufferCap is the maximum number of items each in-memory buffer
+	// (discovery, pending and output) may hold; overflow spills to TempDir.
+	BufferCap int
+	// TempDir is the directory for temporary spill files.
+	TempDir string
 }
 
 func (c *config) String() (rv string) {
@@ -65,4 +78,5 @@ func (c *config) validate() {
 	c.Client.Timeout = min(maxTimeout, max(minTimeout, c.Client.Timeout))
 	c.Delay = max(minDelay, c.Delay)
 	c.Depth = max(minDepth, c.Depth)
+	c.BufferCap = min(maxBufferCap, max(minBufferCap, c.BufferCap))
 }

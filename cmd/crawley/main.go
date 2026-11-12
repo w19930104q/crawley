@@ -37,6 +37,7 @@ var (
 // command-line flags.
 var (
 	fDepth, fWorkers        int
+	fBufferCap              int
 	fSilent, fVersion       bool
 	fBrute, fNoHeads        bool
 	fSkipSSL, fScanJS       bool
@@ -44,6 +45,7 @@ var (
 	fSubdomains             bool
 	fDirsPolicy, fProxyAuth string
 	fRobotsPolicy, fUA      string
+	fTempDir                string
 	fDelay                  time.Duration
 	fTimeout                time.Duration
 	cookies, headers        values.Smart
@@ -151,6 +153,8 @@ func parseFlags() (rv []crawler.Option, err error) {
 		crawler.WithDelay(fDelay),
 		crawler.WithMaxCrawlDepth(fDepth),
 		crawler.WithWorkersCount(fWorkers),
+		crawler.WithBufferCap(fBufferCap),
+		crawler.WithTempDir(fTempDir),
 		crawler.WithSkipSSL(fSkipSSL),
 		crawler.WithBruteMode(fBrute),
 		crawler.WithDirsPolicy(dirs),
@@ -183,6 +187,10 @@ func setupFlags() {
 
 	flag.IntVar(&fDepth, "depth", 0, "scan depth (set -1 for unlimited)")
 	flag.IntVar(&fWorkers, "workers", runtime.NumCPU(), "number of workers")
+	flag.IntVar(&fBufferCap, "buffer-cap", 0,
+		"max items kept in-memory per buffer (discovery/pending/output); overflow spills to disk (0 - built-in default)")
+	flag.StringVar(&fTempDir, "temp-dir", "",
+		"directory for temporary spill files (empty - OS default)")
 
 	flag.BoolVar(&fScanALL, "all", false, "scan all known sources (js/css/...)")
 	flag.BoolVar(&fBrute, "brute", false, "scan html comments")

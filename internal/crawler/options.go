@@ -134,3 +134,20 @@ func WithSubdomains(v bool) Option {
 		c.Subdomains = v
 	}
 }
+
+// WithBufferCap sets the maximum number of items each in-memory buffer
+// (discovery, pending and output) may hold. Buffers that grow beyond the cap
+// spill to temporary files in the configured temp directory.
+func WithBufferCap(v int) Option {
+	return func(c *config) {
+		c.BufferCap = v
+	}
+}
+
+// WithTempDir sets the directory used for temporary spill files. An empty
+// value makes the crawler use the OS default temporary directory.
+func WithTempDir(v string) Option {
+	return func(c *config) {
+		c.TempDir = v
+	}
+}
